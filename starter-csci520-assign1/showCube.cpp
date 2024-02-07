@@ -7,6 +7,7 @@
 
 #include "jello.h"
 #include "showCube.h"
+#include "physics.h"
 
 int pointMap(int side, int i, int j)
 {
@@ -39,6 +40,8 @@ int pointMap(int side, int i, int j)
 
 void showCube(struct world * jello)
 {
+  RK4(jello);
+
   int i,j,k,ip,jp,kp;
   point r1,r2,r3; // aux variables
   

@@ -8,12 +8,120 @@
 #include "jello.h"
 #include "physics.h"
 
+struct intPoint
+{
+    int x;
+    int y;
+    int z;
+};
+
+intPoint operator+(intPoint point1, intPoint point2)
+{
+    point1.x += point2.x;
+    point1.y += point2.y;
+    point1.z += point2.z;
+
+    return point1;
+}
+
+point operator/(point myPoint, double divisor)
+{
+    myPoint.x /= divisor;
+    myPoint.y /= divisor;
+    myPoint.z /= divisor;
+
+    return myPoint;
+}
+
+point operator+(point point1, point point2)
+{
+    point1.x += point2.x;
+    point1.y += point2.y;
+    point1.z += point2.z;
+
+    return point1;
+}
+
+point operator*(double floatVal, point& myPoint)
+{
+    point returnVal;
+
+    returnVal.x = floatVal * myPoint.x;
+    returnVal.y = floatVal * myPoint.y;
+    returnVal.z = floatVal * myPoint.z;
+
+    return returnVal;
+}
+
+point operator*(point& myPoint, double floatVal)
+{
+    point returnVal;
+
+    returnVal.x = floatVal * myPoint.x;
+    returnVal.y = floatVal * myPoint.y;
+    returnVal.z = floatVal * myPoint.z;
+
+    return returnVal;
+}
+
+// Given myPoint's location, interpolate forcefield values
+point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, int gridResolutionInvert)
+{
+    // Lower left corner of the grid cell the point is in
+    int lowerLeftX = floor(myPoint.x * gridResolutionInvert);
+    int lowerLeftY = floor(myPoint.y * gridResolutionInvert);
+    int lowerLeftZ = floor(myPoint.z * gridResolutionInvert);
+
+    intPoint lowerLeftPoint{ lowerLeftX, lowerLeftY, lowerLeftZ };
+
+    double alpha = (myPoint.x - lowerLeftX) * gridResolutionInvert;
+    double beta = (myPoint.y - lowerLeftY) * gridResolutionInvert;
+    double gamma = (myPoint.z - lowerLeftZ) * gridResolutionInvert;
+
+    point finalForce = { 0.0, 0.0, 0.0 };
+
+    for (int x = 0; x < 2; ++x)
+    {
+        for (int y = 0; y < 2; ++y)
+        {
+            for (int z = 0; z < 2; ++z)
+            {
+                intPoint thisPoint = lowerLeftPoint + intPoint{x, y, z};
+
+                point& pointForce = forceField[thisPoint.z * gridResolution * gridResolution +
+                                               thisPoint.y * gridResolution +
+                                               thisPoint.x];
+
+                double alphaVal = (x == 0) ? (1.0 - alpha) : alpha;
+                double betaVal = (y == 0) ? (1.0 - beta) : beta;
+                double gammaVal = (z == 0) ? (1.0 - gamma) : gamma;
+
+                finalForce = finalForce + (alphaVal * betaVal * gammaVal * pointForce);
+            }
+        }
+    }
+
+    return finalForce;
+}
+
 /* Computes acceleration to every control point of the jello cube, 
    which is in state given by 'jello'.
    Returns result in array 'a'. */
 void computeAcceleration(struct world * jello, struct point a[8][8][8])
 {
-  /* for you to implement ... */
+    for (int x = 0; x < 8; ++x)
+    {
+        for (int y = 0; y < 8; ++y)
+        {
+            for (int z = 0; z < 8; ++z)
+            {
+                point totalForce = TrilinearInterp(jello->p[x][y][z], jello->forceField,
+                    jello->resolution, 1 / jello->resolution);
+
+                a[x][y][z] = totalForce / jello->mass;
+            }
+        }
+    }
 }
 
 /* performs one step of Euler Integration */
