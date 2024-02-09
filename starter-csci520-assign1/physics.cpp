@@ -43,6 +43,15 @@ point operator+(point point1, point point2)
     return point1;
 }
 
+point operator-(point point1, point point2)
+{
+    point1.x -= point2.x;
+    point1.y -= point2.y;
+    point1.z -= point2.z;
+
+    return point1;
+}
+
 point operator+(double myFloat, point point)
 {
     point.x += myFloat;
@@ -61,7 +70,7 @@ point operator+(point point, double myFloat)
     return point;
 }
 
-point operator*(double floatVal, point& myPoint)
+point operator*(double floatVal, point myPoint)
 {
     point returnVal;
 
@@ -72,7 +81,7 @@ point operator*(double floatVal, point& myPoint)
     return returnVal;
 }
 
-point operator*(point& myPoint, double floatVal)
+point operator*(point myPoint, double floatVal)
 {
     point returnVal;
 
@@ -152,6 +161,77 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, dou
 
     return finalForce;
 }
+
+double PointMagnitude(point& p)
+{
+    return sqrt(pow(p.x, 2) + pow(p.y, 2) + pow(p.z, 2));
+}
+
+double DotProduct(point p1, point& p2)
+{
+    return (p1.x * p2.x) + (p1.y * p2.y) + (p1.z * p2.z);
+}
+
+
+// i, j, and k are the coordinates of the point in the point array
+point SpringForce(point& myPoint, world* jello, int i, int j, int k)
+{
+    // Size of the cube is 1 x 1 x 1 undeformed
+    // Grid length is 1 / 8 = 0.125
+
+    // Length of the grid
+    double gridLength = 0.125;
+    point neighbor;
+
+    point totalForce = point{ 0.0, 0.0, 0.0 };
+
+
+    // Structural springs
+
+    double restLength = gridLength;
+    point myVelocity = jello->v[i][j][k];
+
+    // For each dimension
+    for (int d = 0; d < 3; ++d)
+    {
+        // Check neighbor in both directions
+        for (int n = -1; n < 2; n += 2)
+        {
+            int newI = d == 0 ? i + n: i;
+            int newJ = d == 1 ? j + n : j;
+            int newK = d == 2 ? k + n : k;
+
+            // Only use this neighbor if it has a valid index
+            if (newI >= 0 && newI < 8 &&
+                newJ >= 0 && newJ < 8 &&
+                newK >= 0 && newK < 8)
+            {
+                neighbor = jello->p[newI][newJ][newK];
+
+                // Elastic force
+                point neighborToMe = myPoint - neighbor;
+                double distMagnitude = PointMagnitude(neighborToMe);
+                double invertDistMagnitude = distMagnitude / 1.0;
+
+                point hookeForce = -(jello->kElastic) * (distMagnitude - restLength)
+                    * neighborToMe * invertDistMagnitude;
+
+
+                // Damping force
+                point neighborVelocity = jello->v[i - 1][j][k];
+
+                point dampForce = -(jello->dElastic) * DotProduct((myVelocity - neighborVelocity), neighborToMe)
+                    * invertDistMagnitude * invertDistMagnitude * neighborToMe;
+
+                totalForce = totalForce + hookeForce + dampForce;
+            }
+        }
+    }
+
+
+}
+
+
 
 /* Computes acceleration to every control point of the jello cube, 
    which is in state given by 'jello'.
