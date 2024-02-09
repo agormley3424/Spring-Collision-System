@@ -265,30 +265,99 @@ point SpringForce(point& myPoint, world* jello, int i, int j, int k)
             {
                 neighbor = jello->p[newI][newJ][newK];
 
-                // Elastic force
-                point neighborToMe = myPoint - neighbor;
-                double distMagnitude = PointMagnitude(neighborToMe);
-                double invertDistMagnitude = distMagnitude / 1.0;
-
-                point hookeForce = -(jello->kElastic) * (distMagnitude - restLength)
-                    * neighborToMe * invertDistMagnitude;
-
-
-                // Damping force
-                point neighborVelocity = jello->v[i - 1][j][k];
-
-                point dampForce = -(jello->dElastic) * DotProduct((myVelocity - neighborVelocity), neighborToMe)
-                    * invertDistMagnitude * invertDistMagnitude * neighborToMe;
-
-                totalForce = totalForce + hookeForce + dampForce;
+                totalForce = totalForce + CalcSpringForce(jello, restLength, myPoint, jello->v[i][j][k],
+                    neighbor, jello->v[newI][newJ][newK]);
             }
         }
     }
 
+    // Shear springs (connected planes)
 
+    double restLength = sqrt(2) * gridLength;
+
+    // Dimension orthogonal to this point
+    for (int d1 = 0; d1 < 3; ++d1)
+    {
+        // Dimension orthogonal to that dimension
+        for (int d2 = 0; d2 < 3; ++d2)
+        {
+            if (d2 == d1) continue;
+
+            // Which side in the first dimension?
+            for (int n1 = -1; n1 < 2; n1 += 2)
+            {
+                // Which side in the second dimension?
+                for (int n2 = -1; n2 < 2; n2 += 2)
+                {
+                    int newI1 = d1 == 0 ? i + n1 : i;
+                    int newJ1 = d1 == 1 ? j + n1 : j;
+                    int newK1 = d1 == 2 ? k + n1 : k;
+
+                    int newI2 = d2 == 0 ? newI1 + n2 : newI1;
+                    int newJ2 = d2 == 1 ? newJ1 + n2 : newJ1;
+                    int newK2 = d2 == 2 ? newK1 + n2 : newK1;
+
+                    // Only use this neighbor if it has a valid index
+                    if (newI2 >= 0 && newI2 < 8 &&
+                        newJ2 >= 0 && newJ2 < 8 &&
+                        newK2 >= 0 && newK2 < 8)
+                    {
+                        neighbor = jello->p[newI2][newJ2][newK2];
+
+                        totalForce = totalForce + CalcSpringForce(jello, restLength, myPoint, jello->v[i][j][k],
+                            neighbor, jello->v[newI2][newJ2][newK2]);
+                    }
+                }
+            }
+        }
+    }
+
+    // Shear springs (main diagonal neighbors)
+
+    double restLength = sqrt(3) * gridLength;
+
+    for (int x = -1; x < 2; x += 2)
+    {
+        for (int y = -1; y < 2; y += 2)
+        {
+            for (int z = -1; z < 2; z += 2)
+            {
+                int newI = i + x;
+                int newJ = j + y;
+                int newK = k + z;
+
+                // Only use this neighbor if it has a valid index
+                if (newI >= 0 && newI < 8 &&
+                    newJ >= 0 && newJ < 8 &&
+                    newK >= 0 && newK < 8)
+                {
+                    neighbor = jello->p[newI][newJ][newK];
+
+                    totalForce = totalForce + CalcSpringForce(jello, restLength, myPoint, jello->v[i][j][k],
+                        neighbor, jello->v[newI][newJ][newK]);
+                }
+            }
+        }
+    }
 }
 
+point CalcSpringForce(world* jello, double restLength, point pos1, point vel1, point pos2, point vel2)
+{
+    // Elastic force
+    point neighborToMe = pos1 - pos2;
+    double distMagnitude = PointMagnitude(neighborToMe);
+    double invertDistMagnitude = distMagnitude / 1.0;
 
+    point hookeForce = -(jello->kElastic) * (distMagnitude - restLength)
+        * neighborToMe * invertDistMagnitude;
+
+
+    // Damping force
+    point dampForce = -(jello->dElastic) * DotProduct((vel1 - vel2), neighborToMe)
+        * invertDistMagnitude * invertDistMagnitude * neighborToMe;
+
+    return hookeForce + dampForce;
+}
 
 /* Computes acceleration to every control point of the jello cube, 
    which is in state given by 'jello'.
