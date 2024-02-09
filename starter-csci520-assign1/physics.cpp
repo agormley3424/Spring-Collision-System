@@ -162,6 +162,64 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, dou
     return finalForce;
 }
 
+point PenaltyForce(point& p, double k)
+{
+    point totalForce = { 0.0, 0.0, 0.0 };
+    point direction;
+    double penetrationDist;
+
+    point backForceX = { 0.0, 0.0, 0.0 };
+    point backForceY = { 0.0, 0.0, 0.0 };
+    point backForceZ = { 0.0, 0.0, 0.0 };
+    
+    if (p.x > 2.0)
+    {
+        direction = { -1.0, 0.0, 0.0 };
+        penetrationDist = p.x - 2.0;
+
+        backForceX = k * penetrationDist * direction;
+    }
+    else if (p.x < -2.0)
+    {
+        direction = { 1.0, 0.0, 0.0 };
+        penetrationDist = p.x + 2.0;
+
+        backForceX = k * penetrationDist * direction;
+    }
+
+    if (p.y > 2.0)
+    {
+        direction = { 0.0, -1.0, 0.0 };
+        penetrationDist = p.y - 2.0;
+
+        backForceY = k * penetrationDist * direction;
+    }
+    else if (p.y < -2.0)
+    {
+        direction = { 0.0, 1.0, 0.0 };
+        penetrationDist = p.y + 2.0;
+
+        backForceY = k * penetrationDist * direction;
+    }
+
+    if (p.z > 2.0)
+    {
+        direction = { 0.0, 0.0, -1.0 };
+        penetrationDist = p.z - 2.0;
+
+        backForceZ = k * penetrationDist * direction;
+    }
+    else if (p.z < -2.0)
+    {
+        direction = { 0.0, 0.0, 1.0 };
+        penetrationDist = p.z + 2.0;
+
+        backForceZ = k * penetrationDist * direction;
+    }
+
+    return backForceX + backForceY + backForceZ;
+}
+
 double PointMagnitude(point& p)
 {
     return sqrt(pow(p.x, 2) + pow(p.y, 2) + pow(p.z, 2));
@@ -171,7 +229,6 @@ double DotProduct(point p1, point& p2)
 {
     return (p1.x * p2.x) + (p1.y * p2.y) + (p1.z * p2.z);
 }
-
 
 // i, j, and k are the coordinates of the point in the point array
 point SpringForce(point& myPoint, world* jello, int i, int j, int k)
