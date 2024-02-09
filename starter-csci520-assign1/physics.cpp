@@ -7,6 +7,7 @@
 
 #include "jello.h"
 #include "physics.h"
+#include <stdexcept>
 
 struct intPoint
 {
@@ -42,6 +43,24 @@ point operator+(point point1, point point2)
     return point1;
 }
 
+point operator+(double myFloat, point point)
+{
+    point.x += myFloat;
+    point.y += myFloat;
+    point.z += myFloat;
+
+    return point;
+}
+
+point operator+(point point, double myFloat)
+{
+    point.x += myFloat;
+    point.y += myFloat;
+    point.z += myFloat;
+
+    return point;
+}
+
 point operator*(double floatVal, point& myPoint)
 {
     point returnVal;
@@ -65,18 +84,38 @@ point operator*(point& myPoint, double floatVal)
 }
 
 // Given myPoint's location, interpolate forcefield values
-point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, int gridResolutionInvert)
+// myPoint is the point to be interpolated
+// forceField is the forcefield vector (3D vector compressed to 1D)
+// gridResolution is the size of the grid on one side
+// gridLengthInvert is the inverted length between two points on the grid
+point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, double gridLengthInvert)
 {
+    point normalizedPoint = myPoint + 2.0;
+
+    // If point is out of bounds
+    if (normalizedPoint.x > 4.0 || normalizedPoint.x < 0.0 ||
+        normalizedPoint.y > 4.0 || normalizedPoint.y < 0.0 ||
+        normalizedPoint.z > 4.0 || normalizedPoint.z < 0.0)
+    {
+        // printf("Point has escaped bounding box!\n");
+
+        // throw std::runtime_error("Physics Error: TrilinearInterp: Point is out of bounds\n");
+
+        return point{ 0.0, 0.0, 0.0 };
+    }
+
     // Lower left corner of the grid cell the point is in
-    int lowerLeftX = floor(myPoint.x * gridResolutionInvert);
-    int lowerLeftY = floor(myPoint.y * gridResolutionInvert);
-    int lowerLeftZ = floor(myPoint.z * gridResolutionInvert);
+    int lowerLeftX = floor(normalizedPoint.x * gridLengthInvert);
+    int lowerLeftY = floor(normalizedPoint.y * gridLengthInvert);
+    int lowerLeftZ = floor(normalizedPoint.z * gridLengthInvert);
+
+
 
     intPoint lowerLeftPoint{ lowerLeftX, lowerLeftY, lowerLeftZ };
 
-    double alpha = (myPoint.x - lowerLeftX) * gridResolutionInvert;
-    double beta = (myPoint.y - lowerLeftY) * gridResolutionInvert;
-    double gamma = (myPoint.z - lowerLeftZ) * gridResolutionInvert;
+    double alpha = (myPoint.x - lowerLeftX) * gridLengthInvert;
+    double beta = (myPoint.y - lowerLeftY) * gridLengthInvert;
+    double gamma = (myPoint.z - lowerLeftZ) * gridLengthInvert;
 
     point finalForce = { 0.0, 0.0, 0.0 };
 
@@ -88,7 +127,7 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, int
             {
                 intPoint thisPoint = lowerLeftPoint + intPoint{x, y, z};
 
-                point& pointForce = forceField[thisPoint.z * gridResolution * gridResolution +
+                point pointForce = forceField[thisPoint.z * gridResolution * gridResolution +
                                                thisPoint.y * gridResolution +
                                                thisPoint.x];
 
@@ -96,10 +135,20 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, int
                 double betaVal = (y == 0) ? (1.0 - beta) : beta;
                 double gammaVal = (z == 0) ? (1.0 - gamma) : gamma;
 
+                // Something is going wrong RIGHT HERE.
+                // For some reason the value of finalForce blows the hell up when it shouldn't
                 finalForce = finalForce + (alphaVal * betaVal * gammaVal * pointForce);
+
+                float xForce = finalForce.x;
+                float yForce = finalForce.y;
+                float zForce = finalForce.z;
+
+                int w = 0;
             }
         }
     }
+
+    point debugAttempt = finalForce;
 
     return finalForce;
 }
@@ -115,10 +164,18 @@ void computeAcceleration(struct world * jello, struct point a[8][8][8])
         {
             for (int z = 0; z < 8; ++z)
             {
+                int resolution = jello->resolution;
+
                 point totalForce = TrilinearInterp(jello->p[x][y][z], jello->forceField,
-                    jello->resolution, 1 / jello->resolution);
+                    resolution, 1.0 / (4.0 / (resolution - 1)));
 
                 a[x][y][z] = totalForce / jello->mass;
+
+                //point testPoint = { 0.0, 0.0, 00.0 };
+
+                //a[x][y][z] = testPoint;
+
+                int w = 0;
             }
         }
     }
