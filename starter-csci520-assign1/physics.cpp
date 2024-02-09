@@ -310,6 +310,35 @@ point SpringForce(point& myPoint, world* jello, int i, int j, int k)
                 }
             }
         }
+
+        // Bend Springs
+
+        double restLength = gridLength * 2;
+
+        // For each dimension
+        for (int d = 0; d < 3; ++d)
+        {
+            // Check neighbor in both directions
+            for (int n = -2; n < 4; n += 4)
+            {
+                int newI = d == 0 ? i + n : i;
+                int newJ = d == 1 ? j + n : j;
+                int newK = d == 2 ? k + n : k;
+
+                // Only use this neighbor if it has a valid index
+                if (newI >= 0 && newI < 8 &&
+                    newJ >= 0 && newJ < 8 &&
+                    newK >= 0 && newK < 8)
+                {
+                    neighbor = jello->p[newI][newJ][newK];
+
+                    totalForce = totalForce + CalcSpringForce(jello, restLength, myPoint, jello->v[i][j][k],
+                        neighbor, jello->v[newI][newJ][newK]);
+                }
+            }
+        }
+
+        return totalForce;
     }
 
     // Shear springs (main diagonal neighbors)
