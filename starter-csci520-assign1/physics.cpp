@@ -162,6 +162,16 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, dou
     return finalForce;
 }
 
+double PointMagnitude(point& p)
+{
+    return sqrt(pow(p.x, 2) + pow(p.y, 2) + pow(p.z, 2));
+}
+
+double DotProduct(point p1, point& p2)
+{
+    return (p1.x * p2.x) + (p1.y * p2.y) + (p1.z * p2.z);
+}
+
 point PenaltyForce(point& p, double k)
 {
     point totalForce = { 0.0, 0.0, 0.0 };
@@ -175,14 +185,14 @@ point PenaltyForce(point& p, double k)
     if (p.x > 2.0)
     {
         direction = { -1.0, 0.0, 0.0 };
-        penetrationDist = p.x - 2.0;
+        penetrationDist = abs(p.x - 2.0);
 
         backForceX = k * penetrationDist * direction;
     }
     else if (p.x < -2.0)
     {
         direction = { 1.0, 0.0, 0.0 };
-        penetrationDist = p.x + 2.0;
+        penetrationDist = abs(p.x + 2.0);
 
         backForceX = k * penetrationDist * direction;
     }
@@ -190,14 +200,14 @@ point PenaltyForce(point& p, double k)
     if (p.y > 2.0)
     {
         direction = { 0.0, -1.0, 0.0 };
-        penetrationDist = p.y - 2.0;
+        penetrationDist = abs(p.y - 2.0);
 
         backForceY = k * penetrationDist * direction;
     }
     else if (p.y < -2.0)
     {
         direction = { 0.0, 1.0, 0.0 };
-        penetrationDist = p.y + 2.0;
+        penetrationDist = abs(p.y + 2.0);
 
         backForceY = k * penetrationDist * direction;
     }
@@ -205,14 +215,14 @@ point PenaltyForce(point& p, double k)
     if (p.z > 2.0)
     {
         direction = { 0.0, 0.0, -1.0 };
-        penetrationDist = p.z - 2.0;
+        penetrationDist = abs(p.z - 2.0);
 
         backForceZ = k * penetrationDist * direction;
     }
     else if (p.z < -2.0)
     {
         direction = { 0.0, 0.0, 1.0 };
-        penetrationDist = p.z + 2.0;
+        penetrationDist = abs(p.z + 2.0);
 
         backForceZ = k * penetrationDist * direction;
     }
@@ -220,14 +230,22 @@ point PenaltyForce(point& p, double k)
     return backForceX + backForceY + backForceZ;
 }
 
-double PointMagnitude(point& p)
+point CalcSpringForce(world* jello, double restLength, point pos1, point vel1, point pos2, point vel2)
 {
-    return sqrt(pow(p.x, 2) + pow(p.y, 2) + pow(p.z, 2));
-}
+    // Elastic force
+    point neighborToMe = pos1 - pos2;
+    double distMagnitude = PointMagnitude(neighborToMe);
+    double invertDistMagnitude = distMagnitude / 1.0;
 
-double DotProduct(point p1, point& p2)
-{
-    return (p1.x * p2.x) + (p1.y * p2.y) + (p1.z * p2.z);
+    point hookeForce = -(jello->kElastic) * (distMagnitude - restLength)
+        * neighborToMe * invertDistMagnitude;
+
+
+    // Damping force
+    point dampForce = -(jello->dElastic) * DotProduct((vel1 - vel2), neighborToMe)
+        * invertDistMagnitude * invertDistMagnitude * neighborToMe;
+
+    return hookeForce + dampForce;
 }
 
 // i, j, and k are the coordinates of the point in the point array
@@ -273,7 +291,7 @@ point SpringForce(point& myPoint, world* jello, int i, int j, int k)
 
     // Shear springs (connected planes)
 
-    double restLength = sqrt(2) * gridLength;
+    restLength = sqrt(2) * gridLength;
 
     // Dimension orthogonal to this point
     for (int d1 = 0; d1 < 3; ++d1)
@@ -313,7 +331,7 @@ point SpringForce(point& myPoint, world* jello, int i, int j, int k)
 
         // Bend Springs
 
-        double restLength = gridLength * 2;
+        restLength = gridLength * 2;
 
         // For each dimension
         for (int d = 0; d < 3; ++d)
@@ -343,7 +361,7 @@ point SpringForce(point& myPoint, world* jello, int i, int j, int k)
 
     // Shear springs (main diagonal neighbors)
 
-    double restLength = sqrt(3) * gridLength;
+    restLength = sqrt(3) * gridLength;
 
     for (int x = -1; x < 2; x += 2)
     {
@@ -370,24 +388,6 @@ point SpringForce(point& myPoint, world* jello, int i, int j, int k)
     }
 }
 
-point CalcSpringForce(world* jello, double restLength, point pos1, point vel1, point pos2, point vel2)
-{
-    // Elastic force
-    point neighborToMe = pos1 - pos2;
-    double distMagnitude = PointMagnitude(neighborToMe);
-    double invertDistMagnitude = distMagnitude / 1.0;
-
-    point hookeForce = -(jello->kElastic) * (distMagnitude - restLength)
-        * neighborToMe * invertDistMagnitude;
-
-
-    // Damping force
-    point dampForce = -(jello->dElastic) * DotProduct((vel1 - vel2), neighborToMe)
-        * invertDistMagnitude * invertDistMagnitude * neighborToMe;
-
-    return hookeForce + dampForce;
-}
-
 /* Computes acceleration to every control point of the jello cube, 
    which is in state given by 'jello'.
    Returns result in array 'a'. */
@@ -400,9 +400,13 @@ void computeAcceleration(struct world * jello, struct point a[8][8][8])
             for (int z = 0; z < 8; ++z)
             {
                 int resolution = jello->resolution;
-
+                
                 point totalForce = TrilinearInterp(jello->p[x][y][z], jello->forceField,
                     resolution, 1.0 / (4.0 / (resolution - 1)));
+
+                point penaltyForce = PenaltyForce(jello->p[x][y][z], jello->kCollision);
+
+                totalForce = totalForce + penaltyForce;
 
                 a[x][y][z] = totalForce / jello->mass;
 
