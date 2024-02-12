@@ -172,29 +172,35 @@ double DotProduct(point p1, point& p2)
     return (p1.x * p2.x) + (p1.y * p2.y) + (p1.z * p2.z);
 }
 
-point PenaltyForce(point& p, double k)
+point PenaltyForce(point& p, point& velocity, double kCoef, double dCoef)
 {
     point totalForce = { 0.0, 0.0, 0.0 };
     point direction;
     double penetrationDist;
 
     point backForceX = { 0.0, 0.0, 0.0 };
+    point backDampX = { 0.0, 0.0, 0.0 };
     point backForceY = { 0.0, 0.0, 0.0 };
+    point backDampY = { 0.0, 0.0, 0.0 };
     point backForceZ = { 0.0, 0.0, 0.0 };
+    point backDampZ = { 0.0, 0.0, 0.0 };
     
     if (p.x > 2.0)
     {
         direction = { -1.0, 0.0, 0.0 };
         penetrationDist = abs(p.x - 2.0);
 
-        backForceX = k * penetrationDist * direction;
+        backForceX = kCoef * penetrationDist * direction;
+        backDampX = (-dCoef) * DotProduct(velocity, direction) * (direction);
+        // Is this formula right?
     }
     else if (p.x < -2.0)
     {
         direction = { 1.0, 0.0, 0.0 };
         penetrationDist = abs(p.x + 2.0);
 
-        backForceX = k * penetrationDist * direction;
+        backForceX = kCoef * penetrationDist * direction;
+        backDampX = (-dCoef) * DotProduct(velocity, direction) * (direction);
     }
 
     if (p.y > 2.0)
@@ -202,14 +208,16 @@ point PenaltyForce(point& p, double k)
         direction = { 0.0, -1.0, 0.0 };
         penetrationDist = abs(p.y - 2.0);
 
-        backForceY = k * penetrationDist * direction;
+        backForceY = kCoef * penetrationDist * direction;
+        backDampY = (-dCoef) * DotProduct(velocity, direction) * (direction);
     }
     else if (p.y < -2.0)
     {
         direction = { 0.0, 1.0, 0.0 };
         penetrationDist = abs(p.y + 2.0);
 
-        backForceY = k * penetrationDist * direction;
+        backForceY = kCoef * penetrationDist * direction;
+        backDampY = (-dCoef) * DotProduct(velocity, direction) * (direction);
     }
 
     if (p.z > 2.0)
@@ -217,17 +225,21 @@ point PenaltyForce(point& p, double k)
         direction = { 0.0, 0.0, -1.0 };
         penetrationDist = abs(p.z - 2.0);
 
-        backForceZ = k * penetrationDist * direction;
+        backForceZ = kCoef * penetrationDist * direction;
+        backDampZ = (-dCoef) * DotProduct(velocity, direction) * (direction);
     }
     else if (p.z < -2.0)
     {
         direction = { 0.0, 0.0, 1.0 };
         penetrationDist = abs(p.z + 2.0);
 
-        backForceZ = k * penetrationDist * direction;
+        backForceZ = kCoef * penetrationDist * direction;
+        backDampZ = (-dCoef) * DotProduct(velocity, direction) * (direction);
     }
 
-    return backForceX + backForceY + backForceZ;
+    return backForceX + backDampX +
+           backForceY + backDampY +
+           backForceZ + backDampZ;
 }
 
 point CalcSpringForce(world* jello, double restLength, point pos1, point vel1, point pos2, point vel2)
@@ -400,15 +412,17 @@ void computeAcceleration(struct world * jello, struct point a[8][8][8])
             for (int z = 0; z < 8; ++z)
             {
                 int resolution = jello->resolution;
+
+                point& myPoint = jello->p[x][y][z];
                 
-                point totalForce = TrilinearInterp(jello->p[x][y][z], jello->forceField,
+                point forceFieldForce = TrilinearInterp(myPoint, jello->forceField,
                     resolution, 1.0 / (4.0 / (resolution - 1)));
 
-                point penaltyForce = PenaltyForce(jello->p[x][y][z], jello->kCollision);
+                point penaltyForce = PenaltyForce(myPoint, jello->v[x][y][z], jello->kCollision, jello->dCollision);
 
-                totalForce = totalForce + penaltyForce;
+                // point springForce = SpringForce(myPoint, jello, x, y, z);
 
-                a[x][y][z] = totalForce / jello->mass;
+                a[x][y][z] = (forceFieldForce + penaltyForce) / jello->mass;
 
                 //point testPoint = { 0.0, 0.0, 00.0 };
 
