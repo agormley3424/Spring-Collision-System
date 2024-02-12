@@ -9,6 +9,8 @@
 #include "physics.h"
 #include <stdexcept>
 
+double gridLength = 1.0 / 7.0;
+
 struct intPoint
 {
     int x;
@@ -192,7 +194,6 @@ point PenaltyForce(point& p, point& velocity, double kCoef, double dCoef)
 
         backForceX = kCoef * penetrationDist * direction;
         backDampX = (-dCoef) * DotProduct(velocity, direction) * (direction);
-        // Is this formula right?
     }
     else if (p.x < -2.0)
     {
@@ -247,15 +248,15 @@ point CalcSpringForce(world* jello, double restLength, point pos1, point vel1, p
     // Elastic force
     point neighborToMe = pos1 - pos2;
     double distMagnitude = PointMagnitude(neighborToMe);
-    double invertDistMagnitude = distMagnitude / 1.0;
+    double invertDistMagnitude = 1.0 / distMagnitude;
 
     point hookeForce = -(jello->kElastic) * (distMagnitude - restLength)
-        * neighborToMe * invertDistMagnitude;
+        * (neighborToMe * invertDistMagnitude);
 
 
     // Damping force
-    point dampForce = -(jello->dElastic) * DotProduct((vel1 - vel2), neighborToMe)
-        * invertDistMagnitude * invertDistMagnitude * neighborToMe;
+    point dampForce = -(jello->dElastic) * (DotProduct((vel1 - vel2), neighborToMe) * invertDistMagnitude)
+        * (invertDistMagnitude * neighborToMe);
 
     return hookeForce + dampForce;
 }
@@ -266,8 +267,6 @@ point SpringForce(point& myPoint, world* jello, int i, int j, int k)
     // Size of the cube is 1 x 1 x 1 undeformed
     // Grid length is 1 / 8 = 0.125
 
-    // Length of the grid
-    double gridLength = 0.125;
     point neighbor;
 
     point totalForce = point{ 0.0, 0.0, 0.0 };
@@ -284,7 +283,7 @@ point SpringForce(point& myPoint, world* jello, int i, int j, int k)
         // Check neighbor in both directions
         for (int n = -1; n < 2; n += 2)
         {
-            int newI = d == 0 ? i + n: i;
+            int newI = d == 0 ? i + n : i;
             int newJ = d == 1 ? j + n : j;
             int newK = d == 2 ? k + n : k;
 
@@ -340,35 +339,6 @@ point SpringForce(point& myPoint, world* jello, int i, int j, int k)
                 }
             }
         }
-
-        // Bend Springs
-
-        restLength = gridLength * 2;
-
-        // For each dimension
-        for (int d = 0; d < 3; ++d)
-        {
-            // Check neighbor in both directions
-            for (int n = -2; n < 4; n += 4)
-            {
-                int newI = d == 0 ? i + n : i;
-                int newJ = d == 1 ? j + n : j;
-                int newK = d == 2 ? k + n : k;
-
-                // Only use this neighbor if it has a valid index
-                if (newI >= 0 && newI < 8 &&
-                    newJ >= 0 && newJ < 8 &&
-                    newK >= 0 && newK < 8)
-                {
-                    neighbor = jello->p[newI][newJ][newK];
-
-                    totalForce = totalForce + CalcSpringForce(jello, restLength, myPoint, jello->v[i][j][k],
-                        neighbor, jello->v[newI][newJ][newK]);
-                }
-            }
-        }
-
-        return totalForce;
     }
 
     // Shear springs (main diagonal neighbors)
@@ -398,6 +368,35 @@ point SpringForce(point& myPoint, world* jello, int i, int j, int k)
             }
         }
     }
+
+    // Bend Springs
+
+    restLength = gridLength * 2;
+
+    // For each dimension
+    for (int d = 0; d < 3; ++d)
+    {
+        // Check neighbor in both directions
+        for (int n = -2; n < 4; n += 4)
+        {
+            int newI = d == 0 ? i + n : i;
+            int newJ = d == 1 ? j + n : j;
+            int newK = d == 2 ? k + n : k;
+
+            // Only use this neighbor if it has a valid index
+            if (newI >= 0 && newI < 8 &&
+                newJ >= 0 && newJ < 8 &&
+                newK >= 0 && newK < 8)
+            {
+                neighbor = jello->p[newI][newJ][newK];
+
+                totalForce = totalForce + CalcSpringForce(jello, restLength, myPoint, jello->v[i][j][k],
+                    neighbor, jello->v[newI][newJ][newK]);
+            }
+        }
+    }
+
+    return totalForce;
 }
 
 /* Computes acceleration to every control point of the jello cube, 
@@ -420,15 +419,15 @@ void computeAcceleration(struct world * jello, struct point a[8][8][8])
 
                 point penaltyForce = PenaltyForce(myPoint, jello->v[x][y][z], jello->kCollision, jello->dCollision);
 
-                // point springForce = SpringForce(myPoint, jello, x, y, z);
+                point springForce = SpringForce(myPoint, jello, x, y, z);
 
-                a[x][y][z] = (forceFieldForce + penaltyForce) / jello->mass;
+                a[x][y][z] = (forceFieldForce + penaltyForce + springForce) / jello->mass;
 
                 //point testPoint = { 0.0, 0.0, 00.0 };
 
                 //a[x][y][z] = testPoint;
 
-                int w = 0;
+                //int w = 0;
             }
         }
     }
