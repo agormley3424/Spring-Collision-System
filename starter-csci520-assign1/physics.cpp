@@ -115,12 +115,13 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, dou
         return point{ 0.0, 0.0, 0.0 };
     }
 
+    // Gridlength = 4 / (n - 1)
+    // gridLengthInvert = (n - 1) / 4
+
     // Lower left corner of the grid cell the point is in
     int lowerLeftX = floor(normalizedPoint.x * gridLengthInvert);
     int lowerLeftY = floor(normalizedPoint.y * gridLengthInvert);
     int lowerLeftZ = floor(normalizedPoint.z * gridLengthInvert);
-
-
 
     intPoint lowerLeftPoint{ lowerLeftX, lowerLeftY, lowerLeftZ };
 
@@ -146,20 +147,10 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, dou
                 double betaVal = (y == 0) ? (1.0 - beta) : beta;
                 double gammaVal = (z == 0) ? (1.0 - gamma) : gamma;
 
-                // Something is going wrong RIGHT HERE.
-                // For some reason the value of finalForce blows the hell up when it shouldn't
                 finalForce = finalForce + (alphaVal * betaVal * gammaVal * pointForce);
-
-                float xForce = finalForce.x;
-                float yForce = finalForce.y;
-                float zForce = finalForce.z;
-
-                int w = 0;
             }
         }
     }
-
-    point debugAttempt = finalForce;
 
     return finalForce;
 }
@@ -422,12 +413,6 @@ void computeAcceleration(struct world * jello, struct point a[8][8][8])
                 point springForce = SpringForce(myPoint, jello, x, y, z);
 
                 a[x][y][z] = (forceFieldForce + penaltyForce + springForce) / jello->mass;
-
-                //point testPoint = { 0.0, 0.0, 00.0 };
-
-                //a[x][y][z] = testPoint;
-
-                //int w = 0;
             }
         }
     }

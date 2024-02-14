@@ -12,6 +12,7 @@
 #include "showCube.h"
 #include "input.h"
 #include "physics.h"
+#include "performanceCounter.h"
 
 // camera parameters
 double Theta = pi / 6;
@@ -32,6 +33,9 @@ int shear=0, bend=0, structural=1, pause=0, viewingMode=0, saveScreenToFile=0;
 struct world jello;
 
 int windowWidth, windowHeight;
+
+// FPS counter
+PerformanceCounter fpsCounter{};
 
 void myinit()
 {
@@ -194,6 +198,12 @@ void display()
 
 void doIdle()
 {
+  //fpsCounter.StopCounter();
+
+  //printf("FPS is %f\n", 1 / fpsCounter.GetElapsedTime());
+
+  //fpsCounter.StartCounter();
+
   char s[20]="picxxxx.ppm";
   int i;
   
@@ -206,7 +216,7 @@ void doIdle()
   if (saveScreenToFile==1)
   {
     saveScreenshot(windowWidth, windowHeight, s);
-    saveScreenToFile=0; // save only once, change this if you want continuos image generation (i.e. animation)
+    // saveScreenToFile=0; // save only once, change this if you want continuos image generation (i.e. animation)
     sprite++;
   }
 

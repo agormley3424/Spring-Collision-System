@@ -40,7 +40,15 @@ int pointMap(int side, int i, int j)
 
 void showCube(struct world * jello)
 {
-  RK4(jello);
+    if (strcmp(jello->integrator, "RK4") == 0)
+    {
+        RK4(jello);
+    }
+    else
+    {
+        Euler(jello);
+    }
+    
 
   int i,j,k,ip,jp,kp;
   point r1,r2,r3; // aux variables
