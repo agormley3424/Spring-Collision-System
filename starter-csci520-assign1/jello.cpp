@@ -12,7 +12,7 @@
 #include "showCube.h"
 #include "input.h"
 #include "physics.h"
-#include "performanceCounter.h"
+// #include "performanceCounter.h"
 
 // camera parameters
 double Theta = pi / 6;
@@ -35,7 +35,7 @@ struct world jello;
 int windowWidth, windowHeight;
 
 // FPS counter
-PerformanceCounter fpsCounter{};
+// PerformanceCounter fpsCounter{};
 
 void myinit()
 {
