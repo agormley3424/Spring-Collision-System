@@ -101,6 +101,8 @@ point operator*(point myPoint, double floatVal)
 // gridLengthInvert is the inverted length between two points on the grid
 point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, double gridLengthInvert)
 {
+    // Speed is good, shouldn't be rotating as much
+
     point normalizedPoint = myPoint + 2.0;
 
     // If point is out of bounds
@@ -119,17 +121,31 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, dou
     // gridLengthInvert = (n - 1) / 4
 
     // Lower left corner of the grid cell the point is in
-    int lowerLeftX = floor(normalizedPoint.x * gridLengthInvert);
-    int lowerLeftY = floor(normalizedPoint.y * gridLengthInvert);
-    int lowerLeftZ = floor(normalizedPoint.z * gridLengthInvert);
+    double coordPosX = normalizedPoint.x * gridLengthInvert;
+    int lowerLeftX = floor(coordPosX);
+    double coordPosY = normalizedPoint.y * gridLengthInvert;
+    int lowerLeftY = floor(coordPosY);
+    double coordPosZ = normalizedPoint.z * gridLengthInvert;
+    int lowerLeftZ = floor(coordPosZ);
 
     intPoint lowerLeftPoint{ lowerLeftX, lowerLeftY, lowerLeftZ };
 
-    double alpha = (myPoint.x - lowerLeftX) * gridLengthInvert;
-    double beta = (myPoint.y - lowerLeftY) * gridLengthInvert;
-    double gamma = (myPoint.z - lowerLeftZ) * gridLengthInvert;
+    double alpha = (coordPosX - lowerLeftX);
+    double beta = (coordPosY - lowerLeftY);
+    double gamma = (coordPosZ - lowerLeftZ);
 
     point finalForce = { 0.0, 0.0, 0.0 };
+
+    //int index = lowerLeftZ * gridResolution * gridResolution +
+    //    lowerLeftY * gridResolution +
+    //    lowerLeftX;
+
+    //point lowerLeftActualPoint = forceField[index];
+
+    //double forceX = lowerLeftActualPoint.x;
+    //double forceY = lowerLeftActualPoint.y;
+    //double forceZ = lowerLeftActualPoint.z;
+
 
     for (int x = 0; x < 2; ++x)
     {
@@ -139,9 +155,9 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, dou
             {
                 intPoint thisPoint = lowerLeftPoint + intPoint{x, y, z};
 
-                point pointForce = forceField[thisPoint.z * gridResolution * gridResolution +
+                point pointForce = forceField[thisPoint.x * gridResolution * gridResolution +
                                                thisPoint.y * gridResolution +
-                                               thisPoint.x];
+                                               thisPoint.z];
 
                 double alphaVal = (x == 0) ? (1.0 - alpha) : alpha;
                 double betaVal = (y == 0) ? (1.0 - beta) : beta;
@@ -406,7 +422,7 @@ void computeAcceleration(struct world * jello, struct point a[8][8][8])
                 point& myPoint = jello->p[x][y][z];
                 
                 point forceFieldForce = TrilinearInterp(myPoint, jello->forceField,
-                    resolution, 1.0 / (4.0 / (resolution - 1)));
+                    resolution, (resolution - 1) / 4.0);
 
                 point penaltyForce = PenaltyForce(myPoint, jello->v[x][y][z], jello->kCollision, jello->dCollision);
 
