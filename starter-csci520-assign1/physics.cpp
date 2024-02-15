@@ -120,7 +120,8 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, dou
     // Gridlength = 4 / (n - 1)
     // gridLengthInvert = (n - 1) / 4
 
-    // Lower left corner of the grid cell the point is in
+    // coordPos is the position of our point relative to the force field grid
+    // lowerLeft is the position of the lower-left corner of the force field cell our point is in
     double coordPosX = normalizedPoint.x * gridLengthInvert;
     int lowerLeftX = floor(coordPosX);
     double coordPosY = normalizedPoint.y * gridLengthInvert;
@@ -130,30 +131,24 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, dou
 
     intPoint lowerLeftPoint{ lowerLeftX, lowerLeftY, lowerLeftZ };
 
+    // Relative position of our point within the cell
+    // No need to normalize, since (coordPos - lowerLeft) is in [0.0, 1.0]
     double alpha = (coordPosX - lowerLeftX);
     double beta = (coordPosY - lowerLeftY);
     double gamma = (coordPosZ - lowerLeftZ);
 
     point finalForce = { 0.0, 0.0, 0.0 };
 
-    //int index = lowerLeftZ * gridResolution * gridResolution +
-    //    lowerLeftY * gridResolution +
-    //    lowerLeftX;
-
-    //point lowerLeftActualPoint = forceField[index];
-
-    //double forceX = lowerLeftActualPoint.x;
-    //double forceY = lowerLeftActualPoint.y;
-    //double forceZ = lowerLeftActualPoint.z;
-
-
+    // Find the force at each point in the cell and interpolate to our point
     for (int x = 0; x < 2; ++x)
     {
         for (int y = 0; y < 2; ++y)
         {
             for (int z = 0; z < 2; ++z)
             {
+                // A point in the cell
                 intPoint thisPoint = lowerLeftPoint + intPoint{x, y, z};
+
 
                 point pointForce = forceField[thisPoint.x * gridResolution * gridResolution +
                                                thisPoint.y * gridResolution +
@@ -163,7 +158,7 @@ point TrilinearInterp(point& myPoint, point* forceField, int gridResolution, dou
                 double betaVal = (y == 0) ? (1.0 - beta) : beta;
                 double gammaVal = (z == 0) ? (1.0 - gamma) : gamma;
 
-                finalForce = finalForce + (alphaVal * betaVal * gammaVal * pointForce);
+                finalForce = finalForce + ((alphaVal * betaVal * gammaVal) * pointForce);
             }
         }
     }
